@@ -1,0 +1,13 @@
+
+python-binance
+ccxt
+pandas
+numpy
+xgboost
+python-telegram-bot
+python-dotenv
+schedule
+APScheduler
+sqlalchemy
+psycopg2-binary # if PostgreSQL is chosen, otherwise sqlite3 is built-in
+Flask
