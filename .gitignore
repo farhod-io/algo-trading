@@ -55,3 +55,7 @@ config_local.json
 *.jpg
 *.jpeg
 *.log
+
+# Local documentation & Interview prep
+INTERVIEW_PREP.md
+
