@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Platform Admin Control Panel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080b11;
+            color: #f3f4f6;
+        }
+        .glass {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .sidebar {
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-6 right-6 hidden z-50 px-4 py-3 rounded-xl shadow-xl transition-all duration-300 transform scale-90 translate-y-2 flex items-center space-x-2">
+        <span id="toast-icon"></span>
+        <span id="toast-message" class="text-sm font-semibold"></span>
+    </div>
+
+    <!-- Left Sidebar (Control Panel) -->
+    <aside class="w-80 sidebar glass p-6 flex flex-col space-y-6 flex-shrink-0">
+        <div>
+            <h2 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-indigo-500 bg-clip-text text-transparent">
+                Control Center
+            </h2>
+            <p class="text-xs text-gray-500 mt-1">Configure bot parameters dynamically</p>
+        </div>
+
+        <hr class="border-gray-800" />
+
+        <!-- Bot Settings Form -->
+        <div class="space-y-4">
+            <h3 class="text-xs uppercase font-bold text-gray-400 tracking-wider">Bot Configurations</h3>
+            
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Active Symbols</label>
+                <input type="text" id="symbols-input" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500" placeholder="BTCUSDT, ETHUSDT" />
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Timeframe</label>
+                <select id="timeframe-select" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500">
+                    <option value="1m">1 minute (1m)</option>
+                    <option value="5m">5 minutes (5m)</option>
+                    <option value="15m">15 minutes (15m)</option>
+                    <option value="1h">1 hour (1h)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">ML Confidence Filter (> %)</label>
+                <input type="number" id="confidence-input" step="0.05" min="0.0" max="1.0" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Scan Interval (Minutes)</label>
+                <input type="number" id="interval-input" min="1" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Futures Leverage (x)</label>
+                <input type="number" id="leverage-input" min="1" max="100" class="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <button onclick="saveSettings()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all shadow-lg hover:shadow-indigo-500/25">
+                Save Configurations
+            </button>
+        </div>
+
+        <hr class="border-gray-800" />
+
+        <!-- Manual Actions -->
+        <div class="space-y-4">
+            <h3 class="text-xs uppercase font-bold text-gray-400 tracking-wider">Manual Commands</h3>
+
+            <button onclick="triggerScan()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all shadow-lg hover:shadow-emerald-500/25 flex justify-center items-center">
+                <span id="scan-btn-text">Run Market Scan Now</span>
+            </button>
+
+            <button onclick="triggerRetrain()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all shadow-lg hover:shadow-amber-500/25 flex justify-center items-center">
+                <span id="retrain-btn-text">Retrain ML Model</span>
+            </button>
+        </div>
+
+        <div class="mt-auto pt-6 text-center">
+            <span class="text-[10px] text-gray-500">Antigravity Trading Hub v3.0</span>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow p-6 space-y-6 overflow-y-auto">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center pb-4 border-b border-gray-900">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-500 to-indigo-500 bg-clip-text text-transparent">
+                    Analytics & Performance Dashboard
+                </h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 mr-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Live Scanner Active
+                </span>
+            </div>
+        </header>
+
+        <!-- KPI Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="glass p-6 rounded-2xl shadow-xl transition-all duration-300 hover:scale-105">
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Account Balance</p>
+                <h3 id="bal-val" class="text-3xl font-bold mt-2 text-emerald-400">$10,000.00</h3>
+            </div>
+            <div class="glass p-6 rounded-2xl shadow-xl transition-all duration-300 hover:scale-105">
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total PnL</p>
+                <h3 id="pnl-val" class="text-3xl font-bold mt-2 text-indigo-400">$0.00</h3>
+            </div>
+            <div class="glass p-6 rounded-2xl shadow-xl transition-all duration-300 hover:scale-105">
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Trades</p>
+                <h3 id="trades-val" class="text-3xl font-bold mt-2 text-gray-100">0</h3>
+            </div>
+            <div class="glass p-6 rounded-2xl shadow-xl transition-all duration-300 hover:scale-105">
+                <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Win Rate</p>
+                <h3 id="winrate-val" class="text-3xl font-bold mt-2 text-teal-400">0.0%</h3>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass p-6 rounded-2xl lg:col-span-2">
+                <h2 class="text-lg font-bold mb-4">Equity Curve</h2>
+                <div class="h-64">
+                    <canvas id="equityChart"></canvas>
+                </div>
+            </div>
+            <div class="glass p-6 rounded-2xl">
+                <h2 class="text-lg font-bold mb-4">Indicator Snapshot Feed</h2>
+                <div class="space-y-4 max-h-64 overflow-y-auto" id="snapshot-feed">
+                    <p class="text-gray-400 text-sm">No snapshots logged yet...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tables Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Open Positions -->
+            <div class="glass p-6 rounded-2xl">
+                <h2 class="text-lg font-bold mb-4 text-emerald-400">Open Positions</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-300">
+                        <thead class="text-xs uppercase bg-gray-900/50 text-gray-400">
+                            <tr>
+                                <th class="p-3">Pair</th>
+                                <th class="p-3">Type</th>
+                                <th class="p-3">Entry Price</th>
+                                <th class="p-3">SL / TP</th>
+                                <th class="p-3">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody id="open-positions-tbody">
+                            <tr>
+                                <td colspan="5" class="p-4 text-center text-gray-500">No open positions.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Signal History -->
+            <div class="glass p-6 rounded-2xl">
+                <h2 class="text-lg font-bold mb-4 text-indigo-400">Recent Signals</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-300">
+                        <thead class="text-xs uppercase bg-gray-900/50 text-gray-400">
+                            <tr>
+                                <th class="p-3">Pair</th>
+                                <th class="p-3">Direction</th>
+                                <th class="p-3">Confidence</th>
+                                <th class="p-3">Strategy</th>
+                                <th class="p-3">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="signals-tbody">
+                            <tr>
+                                <td colspan="5" class="p-4 text-center text-gray-500">No signals found.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        let equityChart = null;
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById("toast");
+            const messageEl = document.getElementById("toast-message");
+            const iconEl = document.getElementById("toast-icon");
+            
+            messageEl.innerText = message;
+            
+            // Set styles based on type
+            if (type === 'success') {
+                toast.className = "fixed top-6 right-6 px-4 py-3 rounded-xl shadow-xl z-50 flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                iconEl.innerHTML = "✅";
+            } else {
+                toast.className = "fixed top-6 right-6 px-4 py-3 rounded-xl shadow-xl z-50 flex items-center space-x-2 bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                iconEl.innerHTML = "❌";
+            }
+            
+            toast.classList.remove("hidden");
+            setTimeout(() => {
+                toast.classList.add("hidden");
+            }, 3000);
+        }
+
+        // Load configs from API into inputs
+        async function loadConfig() {
+            try {
+                const res = await fetch("/api/config");
+                const data = await res.json();
+                
+                document.getElementById("symbols-input").value = data.symbols.join(", ");
+                document.getElementById("timeframe-select").value = data.timeframe;
+                document.getElementById("confidence-input").value = data.ml_confidence_threshold;
+                document.getElementById("interval-input").value = data.scan_interval_minutes;
+                document.getElementById("leverage-input").value = data.leverage;
+            } catch (e) {
+                console.error("Failed to load configs", e);
+            }
+        }
+
+        // Save configs to API
+        async function saveSettings() {
+            const symbols = document.getElementById("symbols-input").value;
+            const timeframe = document.getElementById("timeframe-select").value;
+            const confidence = document.getElementById("confidence-input").value;
+            const interval = document.getElementById("interval-input").value;
+            const leverage = document.getElementById("leverage-input").value;
+            
+            try {
+                const res = await fetch("/api/config", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        symbols: symbols,
+                        timeframe: timeframe,
+                        ml_confidence_threshold: confidence,
+                        scan_interval_minutes: interval,
+                        leverage: leverage
+                    })
+                });
+                
+                if (res.ok) {
+                    showToast("Configurations saved successfully!");
+                } else {
+                    showToast("Failed to save configs", "error");
+                }
+            } catch (e) {
+                showToast("Connection error", "error");
+            }
+        }
+
+        // Trigger manual scan
+        async function triggerScan() {
+            const btnText = document.getElementById("scan-btn-text");
+            btnText.innerText = "Scanning Market...";
+            try {
+                const res = await fetch("/api/scan", { method: "POST" });
+                if (res.ok) {
+                    showToast("Scan command sent successfully!");
+                } else {
+                    showToast("Failed to scan", "error");
+                }
+            } catch (e) {
+                showToast("Connection error", "error");
+            } finally {
+                setTimeout(() => { btnText.innerText = "Run Market Scan Now"; }, 2000);
+            }
+        }
+
+        // Trigger model retraining
+        async function triggerRetrain() {
+            const btnText = document.getElementById("retrain-btn-text");
+            btnText.innerText = "Retraining Model...";
+            try {
+                const res = await fetch("/api/retrain", { method: "POST" });
+                if (res.ok) {
+                    showToast("Retraining pipeline started!");
+                } else {
+                    showToast("Failed to start retraining", "error");
+                }
+            } catch (e) {
+                showToast("Connection error", "error");
+            } finally {
+                setTimeout(() => { btnText.innerText = "Retrain ML Model"; }, 2000);
+            }
+        }
+
+        // Load stats feed
+        async function fetchStats() {
+            try {
+                const res = await fetch("/api/stats");
+                const data = await res.json();
+
+                // Update metrics
+                document.getElementById("bal-val").innerText = "$" + data.balance.toFixed(2);
+                document.getElementById("pnl-val").innerText = (data.total_pnl >= 0 ? "+" : "") + "$" + data.total_pnl.toFixed(2);
+                document.getElementById("trades-val").innerText = data.total_trades;
+                document.getElementById("winrate-val").innerText = data.win_rate.toFixed(1) + "%";
+
+                // Update charts
+                const ctx = document.getElementById('equityChart').getContext('2d');
+                if (equityChart) equityChart.destroy();
+                
+                equityChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [{
+                            label: 'Equity ($)',
+                            data: data.pnl_history,
+                            borderColor: '#34d399',
+                            backgroundColor: 'rgba(52, 211, 153, 0.05)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9ca3af' } },
+                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9ca3af' } }
+                        }
+                    }
+                });
+
+                // Update Open Positions
+                const openBody = document.getElementById("open-positions-tbody");
+                if (data.open_positions.length > 0) {
+                    openBody.innerHTML = data.open_positions.map(p => `
+                        <tr class="border-b border-gray-800 hover:bg-gray-800/30">
+                            <td class="p-3 font-semibold">${p.pair}</td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 rounded text-xs font-semibold ${p.direction === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                                    ${p.direction}
+                                </span>
+                            </td>
+                            <td class="p-3 font-mono">${p.entry_price.toFixed(2)}</td>
+                            <td class="p-3 font-mono text-gray-400">${p.stop_loss.toFixed(2)} / ${p.take_profit.toFixed(2)}</td>
+                            <td class="p-3 font-mono">${p.size}</td>
+                        </tr>
+                    `).join("");
+                } else {
+                    openBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No open positions.</td></tr>`;
+                }
+
+                // Update Signals
+                const sigBody = document.getElementById("signals-tbody");
+                if (data.recent_signals.length > 0) {
+                    sigBody.innerHTML = data.recent_signals.map(s => `
+                        <tr class="border-b border-gray-800 hover:bg-gray-800/30">
+                            <td class="p-3 font-semibold">${s.pair}</td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 rounded text-xs font-semibold ${s.direction === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                                    ${s.direction}
+                                </span>
+                            </td>
+                            <td class="p-3 font-mono">${s.confidence}%</td>
+                            <td class="p-3 text-gray-400">${s.strategy}</td>
+                            <td class="p-3 text-xs text-gray-400">${s.timestamp}</td>
+                        </tr>
+                    `).join("");
+                } else {
+                    sigBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No signals found.</td></tr>`;
+                }
+
+                // Update Indicators snapshot feed
+                const feed = document.getElementById("snapshot-feed");
+                if (data.recent_snapshots.length > 0) {
+                    feed.innerHTML = data.recent_snapshots.map(sn => `
+                        <div class="p-3 bg-gray-900/40 rounded-xl border border-gray-800/50 space-y-1">
+                            <div class="flex justify-between text-xs text-gray-400">
+                                <span>${sn.pair}</span>
+                                <span>${sn.timestamp}</span>
+                            </div>
+                            <div class="flex justify-between font-mono text-sm">
+                                <span>Close: $${sn.close_price.toFixed(2)}</span>
+                                <span class="text-xs text-indigo-400">FVG:${sn.fvg} | Sweep:${sn.sweep} | MSS:${sn.mss}</span>
+                            </div>
+                        </div>
+                    `).join("");
+                } else {
+                    feed.innerHTML = `<p class="text-gray-400 text-sm">No snapshots logged yet...</p>`;
+                }
+
+            } catch (e) {
+                console.error("Dashboard error:", e);
+            }
+        }
+
+        // Initialize
+        loadConfig();
+        fetchStats();
+        setInterval(fetchStats, 5000); // refresh every 5 seconds
+    </script>
+</body>
+</html>
