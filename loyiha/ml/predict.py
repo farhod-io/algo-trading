@@ -1,8 +1,6 @@
-"""Prediction wrapper for trained XGBoost model with dynamic hot-reloading and calibrated probability scaling.
-"""
-
 import os
 import logging
+from datetime import datetime, timezone
 import joblib
 import pandas as pd
 import numpy as np
@@ -11,6 +9,18 @@ MODEL_PATH = "ml_model.json"
 
 _cached_model = None
 _cached_mtime = None
+
+
+def get_model_version() -> str:
+    """Returns the verified production model version string."""
+    if not os.path.exists(MODEL_PATH):
+        return "v1.0.0-rule-engine"
+    try:
+        mtime = os.path.getmtime(MODEL_PATH)
+        dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        return f"v{dt.strftime('%Y%m%d.%H%M')}-xgb"
+    except Exception:
+        return "v1.0.0-xgb"
 
 
 def load_model():

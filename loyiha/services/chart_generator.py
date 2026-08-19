@@ -57,12 +57,12 @@ def generate_signal_chart(df: pd.DataFrame, signal_info: dict, max_candles: int 
     fig.autofmt_xdate()
 
     # Draw Signal Levels if available
-    pair = signal_info.get("pair", "ASSET")
+    pair = signal_info.get("pair", signal_info.get("symbol", "ASSET"))
     direction = signal_info.get("direction", "LONG").upper()
-    entry = signal_info.get("entry_price")
-    sl = signal_info.get("sl")
-    tp1 = signal_info.get("tp1")
-    tp2 = signal_info.get("tp2")
+    entry = signal_info.get("entry_price", signal_info.get("entry"))
+    sl = signal_info.get("stop_loss", signal_info.get("sl"))
+    tp1 = signal_info.get("take_profit_1", signal_info.get("tp1", signal_info.get("take_profit")))
+    tp2 = signal_info.get("take_profit_2", signal_info.get("tp2"))
 
     last_time = recent['timestamp'].iloc[-1]
     first_time = recent['timestamp'].iloc[0]
