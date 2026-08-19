@@ -14,6 +14,9 @@ class Position:
         self.size = trade_info["position_size"]
         self.stop_loss = trade_info["stop_loss"]
         self.take_profit = trade_info["take_profit"]
+        self.take_profit_1 = trade_info.get("take_profit_1", trade_info.get("take_profit"))
+        self.take_profit_2 = trade_info.get("take_profit_2", trade_info.get("take_profit"))
+        self.tp1_hit = False
         self.leverage = leverage
 
         # Calculate liquidation price (90% margin depletion trigger)
@@ -74,6 +77,41 @@ class PortfolioManager:
         self.positions.append(new_pos)
         logging.info(f"PortfolioManager: Opened {new_pos.direction} {new_pos.pair} at {new_pos.entry_price}.")
         return True
+
+    def close_partial_position(self, position: Position, exit_price: float, fraction: float = 0.5):
+        """Partially closes position at TP1, deducts fees/slippage, and shifts SL to Breakeven."""
+        closed_size = position.size * fraction
+        if closed_size <= 0:
+            return
+
+        adj_exit = exit_price * (1.0 - SLIPPAGE_PCT) if position.direction == "LONG" else exit_price * (1.0 + SLIPPAGE_PCT)
+        diff = (adj_exit - position.entry_price) if position.direction == "LONG" else (position.entry_price - adj_exit)
+        raw_pnl = diff * closed_size
+
+        entry_notional = position.entry_price * closed_size
+        exit_notional = adj_exit * closed_size
+        total_commission = (entry_notional + exit_notional) * COMMISSION_FEE_PCT
+
+        net_pnl = raw_pnl - total_commission
+        self.balance += net_pnl
+
+        # Update remaining position & shift SL to Breakeven
+        position.size -= closed_size
+        position.stop_loss = position.entry_price
+        position.tp1_hit = True
+
+        trade_record = {
+            "pair": position.pair,
+            "direction": position.direction,
+            "entry_price": position.entry_price,
+            "exit_price": adj_exit,
+            "pnl": net_pnl,
+            "commission": total_commission,
+            "size": closed_size,
+            "type": "PARTIAL_TP1_BREAKEVEN"
+        }
+        self.trade_history.append(trade_record)
+        logging.info(f"PortfolioManager: Partial TP1 hit for {position.pair}. Closed {closed_size:.4f}, SL moved to BE {position.entry_price:.2f}.")
 
     def close_position(self, position: Position, exit_price: float):
         """Close a position with realistic Commission fee and Slippage deduction."""

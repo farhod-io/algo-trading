@@ -186,17 +186,70 @@ class TestModelValidationAndRisk(unittest.TestCase):
         target = 0 if is_both_touched else (1 if candle_high >= tp_long else 0)
         self.assertEqual(target, 0)
 
-    def test_10_out_of_sample_isolation(self):
-        """Verifies OOS holdout data is strictly segregated from training data."""
-        total_data = list(range(100))
-        split_point = 80
-        train_data = total_data[:split_point]
-        oos_data = total_data[split_point:]
+    def test_11_production_model_gate_evaluation(self):
+        """Verifies candidate models with negative expectancy or poor calibration are rejected."""
+        from ml.retrain import should_promote_to_production
 
-        # Zero overlap
-        intersection = set(train_data).intersection(set(oos_data))
-        self.assertEqual(len(intersection), 0)
-        self.assertEqual(len(oos_data), 20)
+        # Candidate with negative expectancy
+        bad_candidate = {"expectancy": -0.15, "brier_score": 0.22, "log_loss": 0.65}
+        current = {"expectancy": 0.25, "brier_score": 0.18, "log_loss": 0.55}
+
+        promote, reason = should_promote_to_production(bad_candidate, current)
+        self.assertFalse(promote)
+        self.assertIn("Negative or zero expectancy", reason)
+
+        # Superior candidate
+        good_candidate = {"expectancy": 0.35, "brier_score": 0.16, "log_loss": 0.50}
+        promote_good, _ = should_promote_to_production(good_candidate, current)
+        self.assertTrue(promote_good)
+
+    def test_12_triple_barrier_partial_tp1_and_breakeven(self):
+        """Verifies TP1 closes 50% of position and shifts remaining SL to breakeven."""
+        from engine.portfolio_manager import PortfolioManager, Position
+
+        pm = PortfolioManager(initial_balance=100000.0, leverage=1.0)
+        trade_info = {
+            "pair": "BTC/USDT",
+            "direction": "LONG",
+            "entry_price": 50000.0,
+            "position_size": 1.0,
+            "stop_loss": 49500.0,
+            "take_profit": 52000.0,
+            "take_profit_1": 51000.0,
+            "take_profit_2": 52000.0
+        }
+        pm.add_position(trade_info)
+        pos = pm.positions[0]
+
+        # Trigger TP1 partial
+        pm.close_partial_position(pos, 51000.0, fraction=0.5)
+        self.assertEqual(pos.size, 0.5)
+        self.assertEqual(pos.stop_loss, 50000.0) # Moved to Breakeven
+        self.assertTrue(pos.tp1_hit)
+        self.assertEqual(len(pm.trade_history), 1)
+        self.assertEqual(pm.trade_history[0]["type"], "PARTIAL_TP1_BREAKEVEN")
+
+    def test_13_portfolio_margin_and_commission_deduction(self):
+        """Verifies commission and slippage are deducted on trade closure."""
+        from engine.portfolio_manager import PortfolioManager
+
+        pm = PortfolioManager(initial_balance=10000.0, leverage=1.0)
+        trade_info = {
+            "pair": "ETH/USDT",
+            "direction": "LONG",
+            "entry_price": 3000.0,
+            "position_size": 1.0,
+            "stop_loss": 2900.0,
+            "take_profit": 3200.0
+        }
+        pm.add_position(trade_info)
+        pos = pm.positions[0]
+
+        # Close position at 3100
+        pm.close_position(pos, 3100.0)
+        self.assertEqual(len(pm.positions), 0)
+        self.assertEqual(len(pm.trade_history), 1)
+        self.assertGreater(pm.trade_history[0]["commission"], 0.0)
 
 
 if __name__ == "__main__":

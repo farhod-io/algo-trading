@@ -67,23 +67,35 @@ class BacktestEngine:
             window_df = self.data.iloc[i - window_size:i].copy()
             current_price = float(window_df.iloc[-1]["close"])
 
-            # Evaluate open positions for exit
+            # Evaluate open positions for exit with Triple Barrier & Conservative Same-Candle Resolution
             open_positions = list(self.portfolio.positions)
             for pos in open_positions:
                 high = float(window_df.iloc[-1]["high"])
                 low = float(window_df.iloc[-1]["low"])
 
-                # Check SL / TP hits
-                if pos["direction"] == "LONG":
-                    if low <= pos["stop_loss"]:
-                        self.portfolio.close_position(pos, pos["stop_loss"])
-                    elif high >= pos["take_profit"]:
-                        self.portfolio.close_position(pos, pos["take_profit"])
-                elif pos["direction"] == "SHORT":
-                    if high >= pos["stop_loss"]:
-                        self.portfolio.close_position(pos, pos["stop_loss"])
-                    elif low <= pos["take_profit"]:
-                        self.portfolio.close_position(pos, pos["take_profit"])
+                if pos.direction == "LONG":
+                    # Conservative rule: Check Stop Loss first
+                    if low <= pos.stop_loss:
+                        self.portfolio.close_position(pos, pos.stop_loss)
+                    elif not pos.tp1_hit and high >= pos.take_profit_1:
+                        # Partial 50% closure at TP1, move remaining SL to breakeven
+                        self.portfolio.close_partial_position(pos, pos.take_profit_1, fraction=0.5)
+                        # Check if remainder reached TP2 in same bar
+                        if high >= pos.take_profit_2:
+                            self.portfolio.close_position(pos, pos.take_profit_2)
+                    elif pos.tp1_hit and high >= pos.take_profit_2:
+                        self.portfolio.close_position(pos, pos.take_profit_2)
+                elif pos.direction == "SHORT":
+                    # Conservative rule: Check Stop Loss first
+                    if high >= pos.stop_loss:
+                        self.portfolio.close_position(pos, pos.stop_loss)
+                    elif not pos.tp1_hit and low <= pos.take_profit_1:
+                        # Partial 50% closure at TP1, move remaining SL to breakeven
+                        self.portfolio.close_partial_position(pos, pos.take_profit_1, fraction=0.5)
+                        if low <= pos.take_profit_2:
+                            self.portfolio.close_position(pos, pos.take_profit_2)
+                    elif pos.tp1_hit and low <= pos.take_profit_2:
+                        self.portfolio.close_position(pos, pos.take_profit_2)
 
             # Generate Signals
             signals = strategy_engine.run_all(window_df, symbol="BACKTEST")
