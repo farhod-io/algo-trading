@@ -97,21 +97,42 @@ def extract_labeled_features_from_df(df: pd.DataFrame, asset_label: str, tf_labe
 
         entry_price = float(df_slice.iloc[-1]["close"])
         future_slice = df.iloc[i + 1: i + 1 + future_lookahead]
+        direction = combo_res.get("direction", "LONG")
 
-        tp_target = entry_price * 1.0035
-        sl_target = entry_price * 0.9965
-
-        target = 0
-        for _, row in future_slice.iterrows():
-            high = float(row["high"])
-            low = float(row["low"])
-
-            if low <= sl_target:
-                target = 0
-                break
-            if high >= tp_target:
-                target = 1
-                break
+        if direction == "LONG":
+            tp_target = entry_price * 1.0065
+            sl_target = entry_price * 0.9965
+            target = 0
+            for _, row in future_slice.iterrows():
+                high = float(row["high"])
+                low = float(row["low"])
+                # Conservative rule: If both SL and TP touched in same candle, assume SL hit first (target=0)
+                if low <= sl_target and high >= tp_target:
+                    target = 0
+                    break
+                if low <= sl_target:
+                    target = 0
+                    break
+                if high >= tp_target:
+                    target = 1
+                    break
+        else:
+            tp_target = entry_price * 0.9935
+            sl_target = entry_price * 1.0035
+            target = 0
+            for _, row in future_slice.iterrows():
+                high = float(row["high"])
+                low = float(row["low"])
+                # Conservative rule: If both SL and TP touched in same candle, assume SL hit first (target=0)
+                if high >= sl_target and low <= tp_target:
+                    target = 0
+                    break
+                if high >= sl_target:
+                    target = 0
+                    break
+                if low <= tp_target:
+                    target = 1
+                    break
 
         features["target"] = target
         features["asset"] = asset_label

@@ -46,6 +46,7 @@ config_local.json
 # IDEs
 .idea/
 .vscode/
+.continue/
 *.swp
 *.swo
 

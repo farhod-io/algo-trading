@@ -87,21 +87,42 @@ def build_dataset(future_candles_count: int = 12) -> pd.DataFrame:
             if len(future_df) < 3: # Not enough future data to label reliably
                 continue
                 
-            # Compute trade outcome
-            tp_target = entry_price * 1.005
-            sl_target = entry_price * 0.9975
+            direction = getattr(snap, "direction", "LONG") if hasattr(snap, "direction") else "LONG"
             
-            target = 0
-            for _, row in future_df.iterrows():
-                high = float(row['high'])
-                low = float(row['low'])
-                
-                if low <= sl_target:
-                    target = 0 # Hit SL first
-                    break
-                if high >= tp_target:
-                    target = 1 # Hit TP first
-                    break
+            if direction == "LONG":
+                tp_target = entry_price * 1.0065
+                sl_target = entry_price * 0.9965
+                target = 0
+                for _, row in future_df.iterrows():
+                    high = float(row['high'])
+                    low = float(row['low'])
+                    # Conservative: If both hit in same candle, count as SL first
+                    if low <= sl_target and high >= tp_target:
+                        target = 0
+                        break
+                    if low <= sl_target:
+                        target = 0
+                        break
+                    if high >= tp_target:
+                        target = 1
+                        break
+            else:
+                tp_target = entry_price * 0.9935
+                sl_target = entry_price * 1.0035
+                target = 0
+                for _, row in future_df.iterrows():
+                    high = float(row['high'])
+                    low = float(row['low'])
+                    # Conservative: If both hit in same candle, count as SL first
+                    if high >= sl_target and low <= tp_target:
+                        target = 0
+                        break
+                    if high >= sl_target:
+                        target = 0
+                        break
+                    if low <= tp_target:
+                        target = 1
+                        break
             
             features["target"] = target
             dataset_records.append(features)

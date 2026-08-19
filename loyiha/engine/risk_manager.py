@@ -2,25 +2,59 @@ import logging
 from typing import Dict, Any, Optional
 
 class RiskManager:
-    def __init__(self, daily_loss_limit_percent: float = 5.0, risk_per_trade_percent: float = 1.0):
+    def __init__(
+        self,
+        daily_loss_limit_percent: float = 1.0,
+        risk_per_trade_percent: float = 1.0,
+        max_consecutive_losses: int = 3
+    ):
         self.daily_loss_limit_percent = daily_loss_limit_percent
         self.risk_per_trade_percent = risk_per_trade_percent
+        self.max_consecutive_losses = max_consecutive_losses
+        self.consecutive_losses = 0
 
-    def validate_and_size_trade(self, signal: Dict[str, Any], current_price: float, balance: float, daily_loss_percent: float) -> Optional[Dict[str, Any]]:
+    def record_trade_result(self, is_win: bool) -> None:
+        """Updates consecutive loss state upon trade closure."""
+        if is_win:
+            self.consecutive_losses = 0
+        else:
+            self.consecutive_losses += 1
+            logging.warning(
+                f"RiskManager: Loss recorded. Consecutive losses: {self.consecutive_losses}/{self.max_consecutive_losses}"
+            )
+
+    def is_circuit_breaker_active(self, daily_loss_percent: float) -> bool:
+        """Evaluates both daily drawdown and consecutive loss limits."""
+        if daily_loss_percent >= self.daily_loss_limit_percent:
+            return True
+        if self.consecutive_losses >= self.max_consecutive_losses:
+            return True
+        return False
+
+    def validate_and_size_trade(
+        self,
+        signal: Dict[str, Any],
+        current_price: float,
+        balance: float,
+        daily_loss_percent: float
+    ) -> Optional[Dict[str, Any]]:
         """
         Takes a raw signal and returns a structured trade order with SL, TP, and Size.
         Returns None if the trade is rejected due to risk limits.
         """
-        
-        # 1. Check Daily Loss Limit
-        if daily_loss_percent >= self.daily_loss_limit_percent:
-            logging.warning(f"RiskManager: Daily loss limit reached ({daily_loss_percent}%). Trade rejected.")
+        # 1. Check Circuit Breaker (Daily Loss or Consecutive Losses)
+        if self.is_circuit_breaker_active(daily_loss_percent):
+            reason = (
+                f"Daily loss limit reached ({daily_loss_percent}% >= {self.daily_loss_limit_percent}%)"
+                if daily_loss_percent >= self.daily_loss_limit_percent
+                else f"Consecutive loss limit reached ({self.consecutive_losses} >= {self.max_consecutive_losses})"
+            )
+            logging.warning(f"RiskManager Circuit Breaker Tripped: {reason}. Trade rejected.")
             return None
             
         direction = signal["direction"]
         
-        # 2. Calculate Dynamic SL/TP (Simplified version: fixed % distance)
-        # In a real system, you'd use ATR (Average True Range)
+        # 2. Calculate Dynamic SL/TP
         sl_distance_percent = 0.01  # 1% move
         rr_ratio = 2.0              # 1:2 Risk to Reward
         
