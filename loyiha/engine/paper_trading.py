@@ -15,7 +15,7 @@ class PaperTradingEngine:
 
     def _calculate_current_balance_and_daily_loss(self, session) -> tuple:
         """Calculate real current paper balance and today's loss percentage from DB."""
-        initial_balance = getattr(config_module, "INITIAL_BALANCE", 10000.0) if "config_module" in globals() else 10000.0
+        initial_balance = INITIAL_BALANCE
 
         closed_trades = session.query(PaperTrade).filter(
             PaperTrade.status.in_(["CLOSED", "LIQUIDATED"])

@@ -19,7 +19,7 @@ import joblib
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ml.features import extract_features
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 
 MODEL_PATH = "ml_model.json"
 TIMEFRAMES = ["5min", "15min", "1h"]
@@ -91,7 +91,7 @@ def extract_labeled_features_from_df(df: pd.DataFrame, asset_label: str, tf_labe
     for i in range(warmup, total_len - future_lookahead, step):
         df_slice = df.iloc[i - warmup:i + 1].copy()
 
-        combo_res = evaluate_ict_combo(df_slice)
+        combo_res = evaluate_ict_combo_fixed(df_slice, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         features_df = extract_features(df_slice, combo_res["details"])
         features = features_df.iloc[0].to_dict()
 

@@ -31,7 +31,7 @@ from config import (
     WEBHOOK_LISTEN
 )
 from strategy.risk import calculate_risk
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 from data.market_data import fetch_recent_candles
 from data.database import get_user_settings_db, save_user_settings_db, get_session, Signal
 from ml.features import extract_features
@@ -173,7 +173,11 @@ async def price_handler(update: Update, context: CallbackContext) -> None:
             if not df.empty:
                 pair_name = SYMBOL
 
-        combo_res = evaluate_ict_combo(df)
+        combo_res = evaluate_ict_combo_fixed(
+            df=df, market_type='futures',
+            require_killzone=False, strict_htf_alignment=True,
+            symbol=pair_name, timeframe='15m'
+        )
         direction = combo_res.get("direction", "LONG")
         if direction not in ["LONG", "SHORT"]:
             direction = "LONG"
@@ -265,7 +269,11 @@ async def photo_handler(update: Update, context: CallbackContext) -> None:
 
     entry_price = extracted_price if extracted_price else (float(df.iloc[-1]["close"]) if not df.empty else 2650.0)
 
-    combo_res = evaluate_ict_combo(df)
+    combo_res = evaluate_ict_combo_fixed(
+        df=df, market_type='futures',
+        require_killzone=False, strict_htf_alignment=True,
+        symbol=pair_name, timeframe='15m'
+    )
     direction = combo_res.get("direction", "LONG")
     if direction not in ["LONG", "SHORT"]:
         direction = "LONG"
@@ -363,7 +371,11 @@ async def chart(update: Update, context: CallbackContext) -> None:
         pair_name = SYMBOL
 
     if not target_signal:
-        combo_res = evaluate_ict_combo(df)
+        combo_res = evaluate_ict_combo_fixed(
+            df=df, market_type='futures',
+            require_killzone=False, strict_htf_alignment=True,
+            symbol=pair_name, timeframe='15m'
+        )
         direction = combo_res.get("direction", "LONG")
         if direction not in ["LONG", "SHORT"]:
             direction = "LONG"

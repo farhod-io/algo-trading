@@ -35,6 +35,55 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
     return float(tr.rolling(window=period).mean().iloc[-1])
 
 
+def is_volatility_sufficient(df: pd.DataFrame, period: int = 14, sma_period: int = 50, threshold_multiplier: float = 0.85):
+    """Check if current market volatility (ATR) is sufficient compared to historical baseline.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        OHLCV candle dataframe
+    period : int
+        ATR lookback period (default: 14)
+    sma_period : int
+        SMA smoothing period for baseline ATR (default: 50)
+    threshold_multiplier : float
+        Fraction of average ATR required (default: 0.85 = 85%)
+
+    Returns
+    -------
+    tuple
+        (is_sufficient: bool, current_atr: float, threshold_atr: float)
+    """
+    if df is None or len(df) < period + 2:
+        return True, 0.0, 0.0
+
+    high = df["high"].astype(float)
+    low = df["low"].astype(float)
+    close = df["close"].astype(float)
+
+    high_low = high - low
+    high_prev_close = (high - close.shift(1)).abs()
+    low_prev_close = (low - close.shift(1)).abs()
+    tr = pd.concat([high_low, high_prev_close, low_prev_close], axis=1).max(axis=1)
+
+    atr_series = tr.rolling(window=period).mean()
+    valid_atr = atr_series.dropna()
+    if len(valid_atr) == 0:
+        return True, 0.0, 0.0
+
+    current_atr = float(atr_series.iloc[-1])
+    min_periods = min(len(valid_atr), 10)
+    avg_atr_series = atr_series.rolling(window=sma_period, min_periods=min_periods).mean()
+    avg_atr = float(avg_atr_series.iloc[-1]) if not avg_atr_series.empty and not pd.isna(avg_atr_series.iloc[-1]) else current_atr
+
+    threshold_atr = avg_atr * threshold_multiplier
+
+    if avg_atr > 0 and current_atr < threshold_atr:
+        return False, current_atr, threshold_atr
+
+    return True, current_atr, threshold_atr
+
+
 def extract_features(df: pd.DataFrame, indicators: Dict[str, Any]) -> pd.DataFrame:
     """Extract flat feature vector from candles and indicator details.
 

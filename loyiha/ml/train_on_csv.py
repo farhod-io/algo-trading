@@ -16,7 +16,7 @@ from indicators.liquidity import detect_liquidity_sweep
 from indicators.mss import detect_mss
 from indicators.unicorn import detect_unicorn
 from indicators.fibonacci import calculate_ote_zone
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 
 MODEL_PATH = "ml_model.json"
 
@@ -82,7 +82,7 @@ def generate_labeled_dataset(df: pd.DataFrame, future_lookahead: int = 24) -> pd
         # Strict historical window slice up to current bar i (NO future data included in features)
         df_slice = df.iloc[i - warmup:i + 1].copy()
 
-        combo_res = evaluate_ict_combo(df_slice)
+        combo_res = evaluate_ict_combo_fixed(df_slice, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         features_df = extract_features(df_slice, combo_res["details"])
         features = features_df.iloc[0].to_dict()
 

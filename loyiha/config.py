@@ -7,13 +7,24 @@ warnings.filterwarnings("ignore", category=UserWarning, module="urllib3")
 warnings.filterwarnings("ignore", message=".*LibreSSL.*")
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
-load_dotenv(override=True)
+_loyiha_dir = os.path.dirname(os.path.abspath(__file__))
+_env_path = os.path.join(_loyiha_dir, ".env")
+if os.path.exists(_env_path):
+    load_dotenv(_env_path, override=True)
+else:
+    load_dotenv(override=True)
 
 # --- API Configuration ---
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
 BYBIT_API_KEY = os.getenv("BYBIT_API_KEY")
 BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET")
+
+# --- Market Data Configuration ---
+SYMBOL = "NQ"  # Primary Futures Pair: NQ (Nasdaq-100 Futures)
+SYMBOLS = ["NQ", "ES", "GC"]  # Supported Pairs: NQ (Nasdaq), ES (S&P 500), GC (Gold)
+TIMEFRAME = "15m"    # Candlestick timeframe for scanning (15-minute timeframe)
+SCAN_INTERVAL_MINUTES = 15  # How often to scan the market (every 15 minutes)
 
 # Choose one of the exchanges / platforms
 EXCHANGE = "BINANCE"  # or "BYBIT"
@@ -24,22 +35,33 @@ DEFAULT_RISK_PCT = 0.5     # Default Risk per trade (0.5% = $250 max loss)
 # Live Trading Execution Safety Toggle (False by default)
 LIVE_TRADING_ENABLED = os.getenv("LIVE_TRADING_ENABLED", "false").lower() == "true"
 
+# Validate required API keys only if live execution is explicitly enabled
+if LIVE_TRADING_ENABLED:
+    if EXCHANGE == "BINANCE":
+        if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+            raise ValueError("BINANCE_API_KEY and BINANCE_API_SECRET must be set in .env file when LIVE_TRADING_ENABLED is true!")
+    elif EXCHANGE == "BYBIT":
+        if not BYBIT_API_KEY or not BYBIT_API_SECRET:
+            raise ValueError("BYBIT_API_KEY and BYBIT_API_SECRET must be set in .env file when LIVE_TRADING_ENABLED is true!")
+
 # --- Telegram Bot Configuration ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip("'\"")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip("'\"")
 TELEGRAM_ADMIN_ID = os.getenv("TELEGRAM_ADMIN_ID", TELEGRAM_CHAT_ID)
+
+
+def validate_telegram_config():
+    """Verify that Telegram credentials are configured before starting the bot."""
+    if not TELEGRAM_BOT_TOKEN:
+        raise ValueError("TELEGRAM_BOT_TOKEN must be set in .env file!")
+    if not TELEGRAM_CHAT_ID:
+        raise ValueError("TELEGRAM_CHAT_ID must be set in .env file!")
 
 # Webhook vs Polling Configuration (for Production VPS deployment)
 USE_WEBHOOK = os.getenv("USE_WEBHOOK", "false").lower() == "true"
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8443"))
 WEBHOOK_LISTEN = os.getenv("WEBHOOK_LISTEN", "0.0.0.0")
-
-# --- Market Data Configuration ---
-SYMBOL = "NQ"  # Primary Futures Pair: NQ (Nasdaq-100 Futures)
-SYMBOLS = ["NQ", "ES", "GC"]  # Supported Pairs: NQ (Nasdaq), ES (S&P 500), GC (Gold)
-TIMEFRAME = "15m"    # Candlestick timeframe for scanning (15-minute timeframe)
-SCAN_INTERVAL_MINUTES = 15  # How often to scan the market (every 15 minutes)
 
 # --- ICT Model Specific Configurations ---
 SILVER_BULLET_TIMES = [
@@ -77,4 +99,5 @@ if os.path.exists(CONFIG_LOCAL_PATH):
             if "initial_balance" in _local_config:
                 INITIAL_BALANCE = float(_local_config["initial_balance"])
     except Exception as e:
-        pass
+        import logging
+        logging.warning("Failed to load config_local.json: %s", e)

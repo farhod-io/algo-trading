@@ -8,7 +8,7 @@ from typing import List, Dict
 import pandas as pd
 
 
-def detect_mss(df: pd.DataFrame, swing_lookback: int = 15) -> List[Dict]:
+def detect_mss(df: pd.DataFrame, swing_lookback: int = 15, **kwargs) -> List[Dict]:
     """Detect Market Structure Shifts.
 
     Parameters

@@ -10,7 +10,7 @@ from .fvg import detect_fvg
 from .orderblock import detect_breaker_blocks
 
 
-def detect_unicorn(df: pd.DataFrame) -> List[Dict]:
+def detect_unicorn(df: pd.DataFrame, **kwargs) -> List[Dict]:
     """Detect Unicorn model setups (Breaker Block + FVG overlap).
 
     Returns

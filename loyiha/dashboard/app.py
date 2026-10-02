@@ -24,7 +24,11 @@ app = Flask(__name__)
 
 # Basic Auth Credentials from environment
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "antigravity2026")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+if not ADMIN_PASSWORD:
+    logging.warning("ADMIN_PASSWORD not set in environment! Using default development credentials.")
+    ADMIN_PASSWORD = "antigravity2026"
 
 
 def check_auth(username, password):

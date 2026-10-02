@@ -60,3 +60,11 @@ config_local.json
 # Local documentation & Interview prep
 INTERVIEW_PREP.md
 
+# Backups, caches & temporary runtime artifacts
+*.bak
+*.tmp
+*report.json
+*metrics.json
+.auto_improvement_log.txt
+.pytest_cache/
+

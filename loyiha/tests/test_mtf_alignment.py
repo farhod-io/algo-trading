@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 from indicators.htf_bias import determine_htf_bias
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 from data.market_data import fetch_mtf_candles
 
 
@@ -41,7 +41,7 @@ class TestMTFAlignment(unittest.TestCase):
             "volume": [100.0] * 30
         })
 
-        combo_res = evaluate_ict_combo(df_ltf, df_htf=df_htf_bullish)
+        combo_res = evaluate_ict_combo_fixed(df_ltf, df_htf=df_htf_bullish, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         # Counter-trend SHORT signal should be filtered to NEUTRAL
         self.assertNotEqual(combo_res["direction"], "SHORT")
 

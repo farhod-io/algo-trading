@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Optional, Dict
 
 from strategy.base import IStrategy
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 from data.database import get_session, Signal
 from config import ML_CONFIDENCE_THRESHOLD
 from ml.features import extract_features
@@ -21,7 +21,15 @@ class ICTStrategy(IStrategy):
         if df is None or df.empty or len(df) < 10:
             return None
 
-        combo_result = evaluate_ict_combo(df, df_htf=df_htf)
+        combo_result = evaluate_ict_combo_fixed(
+            df=df,
+            df_htf=df_htf,
+            market_type='futures',
+            require_killzone=True,
+            strict_htf_alignment=True,
+            symbol=symbol,
+            timeframe='15m',
+        )
         direction = combo_result["direction"]
         details = combo_result["details"]
 

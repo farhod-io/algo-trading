@@ -9,7 +9,7 @@ from typing import List, Dict
 import pandas as pd
 
 
-def detect_fvg(df: pd.DataFrame, min_gap_pct: float = 0.0005) -> List[Dict]:
+def detect_fvg(df: pd.DataFrame, min_gap_pct: float = 0.0005, **kwargs) -> List[Dict]:
     """Detect Fair Value Gaps in candles DataFrame.
 
     Parameters
