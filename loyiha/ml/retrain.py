@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Dict, Any, Tuple, Optional
 import pandas as pd
 import numpy as np
+import joblib
 import xgboost as xgb
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score, precision_score
 
@@ -109,7 +110,7 @@ def run_auto_retrain(min_trades: int = 15) -> bool:
     """Executes automated model retraining, temporal validation, and gated promotion."""
     session = get_session()
     try:
-        trades = session.query(PaperTrade).filter(PaperTrade.status != "OPEN").order_by(PaperTrade.entry_time.asc()).all()
+        trades = session.query(PaperTrade).filter(PaperTrade.status != "OPEN").order_by(PaperTrade.created_at.asc()).all()
         if not trades or len(trades) < min_trades:
             logging.warning("Insufficient trade history (%d < %d) for retraining.", len(trades) if trades else 0, min_trades)
             return False
@@ -132,7 +133,7 @@ def run_auto_retrain(min_trades: int = 15) -> bool:
             logging.warning("Indicator snapshot data empty or missing target.")
             return False
 
-        feature_cols = [c for c in df.columns if c not in ["target", "timestamp", "pair", "id", "created_at"]]
+        feature_cols = sorted([c for c in df.columns if c not in ["target", "timestamp", "pair", "id", "created_at"]])
         X = df[feature_cols]
         y = df["target"]
 
@@ -157,9 +158,21 @@ def run_auto_retrain(min_trades: int = 15) -> bool:
 
         if os.path.exists(MODEL_PATH):
             try:
-                curr_clf = xgb.XGBClassifier()
-                curr_clf.load_model(MODEL_PATH)
-                current_metrics = evaluate_model_metrics(curr_clf, X_val, y_val)
+                curr_clf = joblib.load(MODEL_PATH)
+                # Align feature columns with existing model's expected order
+                if hasattr(curr_clf, 'get_booster'):
+                    model_feature_names = curr_clf.get_booster().feature_names
+                    if model_feature_names:
+                        aligned_cols = [c for c in model_feature_names if c in X_val.columns]
+                        if len(aligned_cols) == len(model_feature_names):
+                            X_val_aligned = X_val[aligned_cols]
+                        else:
+                            X_val_aligned = X_val
+                    else:
+                        X_val_aligned = X_val
+                else:
+                    X_val_aligned = X_val
+                current_metrics = evaluate_model_metrics(curr_clf, X_val_aligned, y_val)
             except Exception as e:
                 logging.warning("Could not evaluate existing model: %s", e)
 
@@ -175,11 +188,11 @@ def run_auto_retrain(min_trades: int = 15) -> bool:
             # Register versioned copy
             os.makedirs(MODEL_REGISTRY_DIR, exist_ok=True)
             version_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
-            version_path = os.path.join(MODEL_REGISTRY_DIR, f"ml_model_v{version_tag}.json")
-            candidate_clf.save_model(version_path)
+            version_path = os.path.join(MODEL_REGISTRY_DIR, f"ml_model_v{version_tag}.joblib")
+            joblib.dump(candidate_clf, version_path)
 
             # Deploy to production path
-            candidate_clf.save_model(MODEL_PATH)
+            joblib.dump(candidate_clf, MODEL_PATH)
             logging.info("Deployed new model to %s (Version: %s)", MODEL_PATH, version_tag)
             return True
         else:

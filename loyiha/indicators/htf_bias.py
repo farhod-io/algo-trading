@@ -8,7 +8,7 @@ from typing import Dict, Any
 import pandas as pd
 
 
-def determine_htf_bias(df: pd.DataFrame, window: int = 50) -> Dict[str, Any]:
+def determine_htf_bias(df: pd.DataFrame, window: int = 50, strict_mode: bool = True, current_timestamp=None, **kwargs) -> Dict[str, Any]:
     """Determine Higher Timeframe (15m/1h) bias from candle dataset.
 
     Parameters
@@ -17,6 +17,10 @@ def determine_htf_bias(df: pd.DataFrame, window: int = 50) -> Dict[str, Any]:
         OHLCV candles (preferably 15m or 1h)
     window : int
         Lookback for HTF trend assessment
+    strict_mode : bool
+        If True, returns NEUTRAL when trend is ambiguous
+    current_timestamp : pd.Timestamp, optional
+        Current candle timestamp for session awareness
 
     Returns
     -------

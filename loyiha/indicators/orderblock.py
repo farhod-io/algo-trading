@@ -10,7 +10,7 @@ from typing import List, Dict
 import pandas as pd
 
 
-def detect_orderblocks(df: pd.DataFrame, window: int = 20) -> List[Dict]:
+def detect_orderblocks(df: pd.DataFrame, window: int = 20, **kwargs) -> List[Dict]:
     """Detect valid Bullish and Bearish Order Blocks.
 
     Parameters
@@ -75,7 +75,7 @@ def detect_orderblocks(df: pd.DataFrame, window: int = 20) -> List[Dict]:
     return obs
 
 
-def detect_breaker_blocks(df: pd.DataFrame, window: int = 30) -> List[Dict]:
+def detect_breaker_blocks(df: pd.DataFrame, window: int = 30, **kwargs) -> List[Dict]:
     """Detect Breaker Blocks (invalidated Order Blocks that invert role).
 
     Returns

@@ -78,14 +78,50 @@ class IndicatorSnapshot(Base):
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
     pair = Column(String, nullable=False)
+
+    # ICT indicator booleans
     fvg_detected = Column(Boolean, default=False)
     liquidity_sweep = Column(Boolean, default=False)
     mss_detected = Column(Boolean, default=False)
     unicorn_detected = Column(Boolean, default=False)
+    orderblock_detected = Column(Boolean, default=False)
+    silver_bullet_detected = Column(Boolean, default=False)
+    in_ote = Column(Boolean, default=False)
+
+    # OTE zone levels
     ote_low = Column(Float, nullable=True)
     ote_mid = Column(Float, nullable=True)
     ote_high = Column(Float, nullable=True)
+
+    # Price action features
     close_price = Column(Float, nullable=False)
+    fvg_size = Column(Float, default=0.0)
+    fvg_distance = Column(Float, default=0.0)
+    candle_body_ratio = Column(Float, default=0.0)
+    top_wick_ratio = Column(Float, default=0.0)
+    bottom_wick_ratio = Column(Float, default=0.0)
+
+    # Momentum & Volatility
+    momentum_5 = Column(Float, default=0.0)
+    momentum_10 = Column(Float, default=0.0)
+    volatility_10 = Column(Float, default=0.0)
+    rsi_14 = Column(Float, default=50.0)
+    atr_14 = Column(Float, default=0.0)
+    atr_ratio = Column(Float, default=0.0)
+
+    # Volume & Trend
+    volume_ratio = Column(Float, default=1.0)
+    trend_ema_diff = Column(Float, default=0.0)
+    poc_distance = Column(Float, default=0.0)
+
+    # Session awareness
+    dist_to_session_high = Column(Float, default=0.0)
+    dist_to_session_low = Column(Float, default=0.0)
+    hour_of_day = Column(Integer, default=0)
+    session_type = Column(Float, default=0.0)
+
+    # Target label for retraining (1 = TP hit, 0 = SL hit)
+    target = Column(Integer, nullable=True)
 
 
 class UserSettings(Base):

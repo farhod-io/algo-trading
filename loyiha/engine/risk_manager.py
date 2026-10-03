@@ -54,16 +54,19 @@ class RiskManager:
             
         direction = signal["direction"]
         
-        # 2. Calculate Dynamic SL/TP
+        # 2. Calculate Dynamic SL/TP1/TP2
         sl_distance_percent = 0.01  # 1% move
-        rr_ratio = 2.0              # 1:2 Risk to Reward
+        rr_ratio_1 = 2.0            # 1:2 Risk to Reward for TP1 (partial close)
+        rr_ratio_2 = 3.5            # 1:3.5 Risk to Reward for TP2 (full close)
         
         if direction == "LONG":
             sl_price = current_price * (1 - sl_distance_percent)
-            tp_price = current_price * (1 + (sl_distance_percent * rr_ratio))
+            tp1_price = current_price * (1 + (sl_distance_percent * rr_ratio_1))
+            tp2_price = current_price * (1 + (sl_distance_percent * rr_ratio_2))
         else:
             sl_price = current_price * (1 + sl_distance_percent)
-            tp_price = current_price * (1 - (sl_distance_percent * rr_ratio))
+            tp1_price = current_price * (1 - (sl_distance_percent * rr_ratio_1))
+            tp2_price = current_price * (1 - (sl_distance_percent * rr_ratio_2))
             
         sl_distance_abs = abs(current_price - sl_price)
         
@@ -79,13 +82,15 @@ class RiskManager:
             "entry_price": current_price,
             "position_size": round(position_size, 4),
             "stop_loss": round(sl_price, 2),
-            "take_profit": round(tp_price, 2),
+            "take_profit": round(tp1_price, 2),
+            "take_profit_1": round(tp1_price, 2),
+            "take_profit_2": round(tp2_price, 2),
             "risk_amount": round(risk_amount, 2),
             "confidence": signal["confidence"],
             "source": signal.get("source_strategy", "Unknown")
         }
         
-        logging.info(f"RiskManager: Trade Validated -> Size: {trade['position_size']}, SL: {trade['stop_loss']}, TP: {trade['take_profit']}")
+        logging.info(f"RiskManager: Trade Validated -> Size: {trade['position_size']}, SL: {trade['stop_loss']}, TP1: {trade['take_profit_1']}, TP2: {trade['take_profit_2']}")
         return trade
         
 # Global singleton

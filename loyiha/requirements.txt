@@ -1,13 +1,44 @@
-
+# === Exchange & Data ===
 python-binance
 ccxt
+yfinance
+requests
 pandas
 numpy
+
+# === ML / Model ===
 xgboost
+joblib
+scikit-learn
+
+# === Telegram Bot ===
 python-telegram-bot
+
+# === Config ===
 python-dotenv
+
+# === Scheduling ===
 schedule
 APScheduler
+
+# === Database ===
 sqlalchemy
-psycopg2-binary # if PostgreSQL is chosen, otherwise sqlite3 is built-in
+psycopg2-binary  # if PostgreSQL is chosen, otherwise sqlite3 is built-in
+
+# === Web Dashboard ===
 Flask
+
+# === Chart Generation ===
+matplotlib
+Pillow
+
+# === Testing (stdlib, no install needed) ===
+# unittest — built-in
+
+# === Security ===
+python-jose
+passlib
+
+# === Production ===
+gunicorn
+eventlet

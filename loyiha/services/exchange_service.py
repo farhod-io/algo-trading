@@ -6,6 +6,10 @@ import pandas as pd
 
 from config import EXCHANGE, BINANCE_API_KEY, BINANCE_API_SECRET, BYBIT_API_KEY, BYBIT_API_SECRET
 
+# Check if API keys are available
+BINANCE_KEYS_AVAILABLE = bool(BINANCE_API_KEY and BINANCE_API_SECRET)
+BYBIT_KEYS_AVAILABLE = bool(BYBIT_API_KEY and BYBIT_API_SECRET)
+
 # Futures & Crypto Symbol Mapping
 FUTURES_MAP = {
     "NQ": "NQ=F",

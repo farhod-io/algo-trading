@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from typing import Dict, Any, Set
+from typing import Dict, Any
+from collections import OrderedDict
 from abc import ABC, abstractmethod
 
 from events.event_bus import event_bus
@@ -47,11 +48,13 @@ class TelegramNotifier(INotifier):
 
 
 class NotificationService:
+    MAX_HISTORY = 500
+
     def __init__(self):
         self.notifiers = [
             TelegramNotifier()
         ]
-        self._sent_idempotency_keys: Set[str] = set()
+        self._sent_idempotency_keys: OrderedDict[str, None] = OrderedDict()
         event_bus.subscribe("SIGNAL_GENERATED", self.handle_signal)
 
     def is_duplicate_signal(self, signal_data: Dict[str, Any]) -> bool:
@@ -66,10 +69,9 @@ class NotificationService:
         if key in self._sent_idempotency_keys:
             return True
 
-        self._sent_idempotency_keys.add(key)
-        # Keep set bounded to prevent unbounded memory growth
-        if len(self._sent_idempotency_keys) > 1000:
-            self._sent_idempotency_keys.pop()
+        self._sent_idempotency_keys[key] = None
+        if len(self._sent_idempotency_keys) > self.MAX_HISTORY:
+            self._sent_idempotency_keys.popitem(last=False)
         return False
 
     def handle_signal(self, signal_data: Dict[str, Any]):

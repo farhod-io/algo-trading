@@ -21,7 +21,7 @@ from indicators.amd import detect_amd
 from indicators.silver_bullet import detect_silver_bullet
 from indicators.htf_bias import determine_htf_bias
 from strategy.risk import calculate_risk
-from strategy.combo import evaluate_ict_combo
+from strategy.combo_fixed import evaluate_ict_combo_fixed
 from ml.features import extract_features
 from ml.predict import predict_signal_confidence
 
@@ -144,12 +144,12 @@ class TestStrategyComboAndML(unittest.TestCase):
         self.df = generate_mock_candles(50, start_price=70000.0)
 
     def test_evaluate_ict_combo(self):
-        combo_res = evaluate_ict_combo(self.df)
+        combo_res = evaluate_ict_combo_fixed(self.df, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         self.assertIn("direction", combo_res)
         self.assertIn("confluence_score", combo_res)
 
     def test_feature_extraction(self):
-        combo_res = evaluate_ict_combo(self.df)
+        combo_res = evaluate_ict_combo_fixed(self.df, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         features = extract_features(self.df, combo_res["details"])
 
         self.assertEqual(len(features), 1)
@@ -158,7 +158,7 @@ class TestStrategyComboAndML(unittest.TestCase):
         self.assertIn("fvg_detected", features.columns)
 
     def test_ml_predict_fallback(self):
-        combo_res = evaluate_ict_combo(self.df)
+        combo_res = evaluate_ict_combo_fixed(self.df, market_type='futures', require_killzone=False, strict_htf_alignment=True)
         features = extract_features(self.df, combo_res["details"])
         conf = predict_signal_confidence(features, rule_confidence=0.82)
         self.assertGreaterEqual(conf, 0.0)

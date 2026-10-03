@@ -34,7 +34,7 @@ def is_silver_bullet_time(ts: pd.Timestamp) -> Optional[str]:
     return None
 
 
-def detect_silver_bullet(df: pd.DataFrame) -> List[Dict]:
+def detect_silver_bullet(df: pd.DataFrame, **kwargs) -> List[Dict]:
     """Detect Silver Bullet setups.
 
     Returns
