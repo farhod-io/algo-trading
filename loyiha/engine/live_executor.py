@@ -1,93 +1,56 @@
-"""Live Order Execution Module for Binance / Bybit Futures.
+"""Live order execution entry point.
 
-When LIVE_TRADING_ENABLED=True, automatically places market/limit orders
-with attached Stop-Loss and Take-Profit brackets for high-confidence AI signals.
+This used to contain a second, independent implementation that placed a market
+order with a hardcoded ``quantity=0.001`` and no Stop-Loss / Take-Profit
+brackets. It now delegates to ``services.order_execution_service`` so there is a
+single source of truth for order placement.
+
+Execution is gated twice: ``LIVE_TRADING_ENABLED`` must be true in ``.env``,
+otherwise nothing is sent to the exchange. Note that no code in the signal path
+calls this module any more -- ``rule.md`` requires the system to signal only.
 """
 
 import logging
 from typing import Dict, Any
 
-from config import LIVE_TRADING_ENABLED, EXCHANGE, BINANCE_API_KEY, BINANCE_API_SECRET, BYBIT_API_KEY, BYBIT_API_SECRET
-
-
-def _calculate_quantity(signal: Dict[str, Any], current_price: float) -> float:
-    """Calculate order quantity based on risk parameters.
-
-    Uses risk_per_trade_percent and balance from signal context,
-    falling back to a safe minimum if not available.
-    """
-    risk_pct = signal.get("risk_pct", 0.5)  # Default 0.5%
-    balance = signal.get("balance", 50000.0)
-    sl_distance = signal.get("sl_distance", current_price * 0.01)
-
-    risk_amount = balance * (risk_pct / 100.0)
-    if sl_distance > 0:
-        quantity = risk_amount / sl_distance
-    else:
-        quantity = 0.001
-
-    # Clamp to reasonable bounds
-    return max(0.001, round(quantity, 4))
+from services.order_execution_service import live_order_executor
+from strategy.risk import calculate_risk
 
 
 def execute_live_signal(signal: Dict[str, Any]) -> bool:
-    """Execute live order on Binance/Bybit Futures if LIVE_TRADING_ENABLED is True."""
-    if not LIVE_TRADING_ENABLED:
-        logging.info("Live trading disabled (LIVE_TRADING_ENABLED=False). Paper trading record saved.")
+    """Execute a live order for `signal` through the shared execution service.
+
+    Returns True only when the exchange reported a filled order.
+    """
+    if not live_order_executor.enabled:
+        logging.info("Live trading disabled (LIVE_TRADING_ENABLED=False). No order placed.")
         return False
 
-    symbol = signal.get("pair", "BTCUSDT")
+    symbol = signal.get("pair", "")
     direction = signal.get("direction", "LONG").upper()
-    confidence = signal.get("confidence", 0.0)
-    current_price = signal.get("entry_price")
-    
-    if current_price is None:
-        logging.error("Live Executor: entry_price is missing from signal. Aborting.")
-        return False
-    
-    if not isinstance(current_price, (int, float)) or current_price <= 0:
-        logging.warning("Live Executor: Invalid entry price (%s) for %s. Aborting.", current_price, symbol)
+    entry_price = float(signal.get("entry_price", 0.0) or 0.0)
+
+    # Derive real SL/TP instead of the old hardcoded quantity order.
+    if entry_price > 0:
+        sl, tp1, _tp2 = calculate_risk(entry_price=entry_price, direction=direction)
+    else:
+        sl = float(signal.get("stop_loss", 0.0) or 0.0)
+        tp1 = float(signal.get("take_profit_1", signal.get("take_profit", 0.0)) or 0.0)
+
+    quantity = float(signal.get("position_size", 0.0) or 0.0)
+    if quantity <= 0:
+        logging.warning(
+            "Live Executor: no position_size on signal for %s; refusing to guess a quantity.",
+            symbol,
+        )
         return False
 
-    quantity = _calculate_quantity(signal, current_price)
-
-    logging.info(
-        "Live Executor: Attempting live execution for %s %s (Confidence: %s%%, Qty: %.4f)...",
-        symbol, direction, confidence, quantity
+    result = live_order_executor.execute_live_order(
+        symbol=symbol,
+        direction=direction,
+        entry_price=entry_price,
+        stop_loss=sl,
+        take_profit=tp1,
+        quantity=quantity,
     )
-
-    try:
-        if EXCHANGE.upper() == "BINANCE":
-            from binance.client import Client
-            client = Client(BINANCE_API_KEY, BINANCE_API_SECRET)
-
-            side = Client.SIDE_BUY if direction == "LONG" else Client.SIDE_SELL
-            order = client.futures_create_order(
-                symbol=symbol,
-                side=side,
-                type=Client.ORDER_TYPE_MARKET,
-                quantity=quantity
-            )
-            logging.info("Binance Futures Order Executed successfully: %s", order.get("orderId"))
-            return True
-
-        elif EXCHANGE.upper() == "BYBIT":
-            from pybit import HTTP
-            client = HTTP(api_key=BYBIT_API_KEY, api_secret=BYBIT_API_SECRET)
-            side = "Buy" if direction == "LONG" else "Sell"
-            resp = client.place_active_order(
-                symbol=symbol,
-                side=side,
-                order_type="Market",
-                qty=quantity,
-                time_in_force="GoodTillCancel"
-            )
-            logging.info("Bybit Futures Order Executed successfully: %s", resp.get("result"))
-            return True
-
-    except Exception as e:
-        logging.error("Live Execution failed for %s: %s", symbol, e, exc_info=True)
-        raise
-        return False
-
-    return False
+    return result is not None

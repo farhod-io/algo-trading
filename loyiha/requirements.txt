@@ -5,6 +5,7 @@ yfinance
 requests
 pandas
 numpy
+pybit
 
 # === ML / Model ===
 xgboost
@@ -23,17 +24,15 @@ APScheduler
 
 # === Database ===
 sqlalchemy
-psycopg2-binary  # if PostgreSQL is chosen, otherwise sqlite3 is built-in
+psycopg2-binary
 
 # === Web Dashboard ===
 Flask
 
-# === Chart Generation ===
+# === Chart Generation & OCR ===
 matplotlib
 Pillow
-
-# === Testing (stdlib, no install needed) ===
-# unittest — built-in
+easyocr
 
 # === Security ===
 python-jose
@@ -42,3 +41,7 @@ passlib
 # === Production ===
 gunicorn
 eventlet
+
+# === Testing ===
+pytest
+pytest-asyncio

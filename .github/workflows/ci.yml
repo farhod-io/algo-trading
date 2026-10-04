@@ -30,5 +30,8 @@ jobs:
           pip install pytest pytest-asyncio
 
       - name: Run test suite
+        env:
+          LIVE_TRADING_ENABLED: "false"
+          ADMIN_PASSWORD: ci-only-password-not-a-secret
         run: |
           pytest

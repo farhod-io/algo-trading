@@ -64,10 +64,15 @@ WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8443"))
 WEBHOOK_LISTEN = os.getenv("WEBHOOK_LISTEN", "0.0.0.0")
 
 # --- ICT Model Specific Configurations ---
+# Silver Bullet killzones in UTC (rule.md defines them in EST = UTC-5):
+#   London 03:00-04:00 EST -> 08:00-09:00 UTC
+#   NY AM  10:00-11:00 EST -> 15:00-16:00 UTC
+#   NY PM  14:00-15:00 EST -> 19:00-20:00 UTC
+# indicators/silver_bullet.py reads this list, so windows are tunable here.
 SILVER_BULLET_TIMES = [
-    {"start": "07:00", "end": "08:00"},
-    {"start": "14:00", "end": "15:00"},
-    {"start": "18:00", "end": "19:00"},
+    {"start": "08:00", "end": "09:00"},
+    {"start": "15:00", "end": "16:00"},
+    {"start": "19:00", "end": "20:00"},
 ]
 
 # --- ML Model Configuration ---

@@ -14,8 +14,8 @@ class PaperTradingEngine:
         event_bus.subscribe("SIGNAL_GENERATED", self.on_signal_generated)
 
     def _calculate_current_balance_and_daily_loss(self, session) -> tuple:
-        """Calculate real current paper balance and today's loss percentage from DB."""
-        initial_balance = INITIAL_BALANCE
+        # INITIAL_BALANCE is imported from config (e.g. $50,000 Prop Firm default)
+        initial_balance = float(INITIAL_BALANCE)
 
         closed_trades = session.query(PaperTrade).filter(
             PaperTrade.status.in_(["CLOSED", "LIQUIDATED"])

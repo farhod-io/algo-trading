@@ -133,6 +133,14 @@ class UserSettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ScannerState(Base):
+    """Small key/value store for scanner runtime state (survives restarts)."""
+    __tablename__ = "scanner_state"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 def init_db() -> None:
     """Create tables if they do not exist."""
     Base.metadata.create_all(bind=engine)
@@ -179,5 +187,38 @@ def save_user_settings_db(user_id: int, deposit: float, risk_pct: float) -> dict
         session.rollback()
         logging.error(f"Error saving UserSettings for {user_id}: {e}")
         return {"deposit": deposit, "risk_pct": risk_pct}
+    finally:
+        session.close()
+
+
+def get_scanner_state(key: str):
+    """Read a persistent scanner state value (e.g. last alerted candle). Returns None if absent."""
+    session = get_session()
+    try:
+        row = session.query(ScannerState).filter(ScannerState.key == key).first()
+        return row.value if row else None
+    except Exception as e:
+        logging.error(f"Error reading ScannerState[{key}]: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def set_scanner_state(key: str, value: str) -> bool:
+    """Persist a scanner state value so deduplication survives process restarts."""
+    session = get_session()
+    try:
+        row = session.query(ScannerState).filter(ScannerState.key == key).first()
+        if row:
+            row.value = value
+            row.updated_at = datetime.utcnow()
+        else:
+            session.add(ScannerState(key=key, value=value))
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        logging.error(f"Error saving ScannerState[{key}]: {e}")
+        return False
     finally:
         session.close()
