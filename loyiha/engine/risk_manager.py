@@ -1,16 +1,24 @@
 import logging
 from typing import Dict, Any, Optional
 
+from strategy.risk import calculate_risk
+
+
 class RiskManager:
     def __init__(
         self,
         daily_loss_limit_percent: float = 1.0,
         risk_per_trade_percent: float = 1.0,
-        max_consecutive_losses: int = 3
+        max_consecutive_losses: int = 3,
+        sl_distance_percent: float = 1.0,
     ):
         self.daily_loss_limit_percent = daily_loss_limit_percent
         self.risk_per_trade_percent = risk_per_trade_percent
         self.max_consecutive_losses = max_consecutive_losses
+        # Stop-loss distance as a % of entry. Passed straight into
+        # strategy.risk.calculate_risk so paper trading and the Telegram
+        # analysis use one single SL/TP implementation.
+        self.sl_distance_percent = sl_distance_percent
         self.consecutive_losses = 0
 
     def record_trade_result(self, is_win: bool) -> None:
@@ -54,37 +62,35 @@ class RiskManager:
             
         direction = signal["direction"]
         
-        # 2. Calculate Dynamic SL/TP1/TP2
-        sl_distance_percent = 0.01  # 1% move
-        rr_ratio_1 = 2.0            # 1:2 Risk to Reward for TP1 (partial close)
-        rr_ratio_2 = 3.5            # 1:3.5 Risk to Reward for TP2 (full close)
-        
-        if direction == "LONG":
-            sl_price = current_price * (1 - sl_distance_percent)
-            tp1_price = current_price * (1 + (sl_distance_percent * rr_ratio_1))
-            tp2_price = current_price * (1 + (sl_distance_percent * rr_ratio_2))
-        else:
-            sl_price = current_price * (1 + sl_distance_percent)
-            tp1_price = current_price * (1 - (sl_distance_percent * rr_ratio_1))
-            tp2_price = current_price * (1 - (sl_distance_percent * rr_ratio_2))
-            
-        sl_distance_abs = abs(current_price - sl_price)
-        
+        # 2. Calculate SL/TP via the shared strategy.risk implementation
+        #    (ATR/swing aware when df is supplied, bounded percentage otherwise).
+        #    TP1 = RRR 1.85, TP2 = RRR 3.70 -- same targets the Telegram
+        #    analysis reports, so there is no longer a second divergent formula.
+        stop_loss, tp1, tp2 = calculate_risk(
+            entry_price=current_price,
+            direction=direction,
+            sl_percent=self.sl_distance_percent,
+            df=signal.get("df"),
+        )
+
+        sl_distance_abs = abs(current_price - stop_loss)
+
         # 3. Position Sizing
         # Risk Amount = Balance * (Risk% / 100)
         # Position Size = Risk Amount / SL Distance (Absolute)
         risk_amount = balance * (self.risk_per_trade_percent / 100.0)
         position_size = risk_amount / sl_distance_abs if sl_distance_abs > 0 else 0
-        
+
         trade = {
             "pair": signal["pair"],
             "direction": direction,
             "entry_price": current_price,
             "position_size": round(position_size, 4),
-            "stop_loss": round(sl_price, 2),
-            "take_profit": round(tp1_price, 2),
-            "take_profit_1": round(tp1_price, 2),
-            "take_profit_2": round(tp2_price, 2),
+            "stop_loss": round(stop_loss, 2),
+            # First target is what paper_trading closes at; both are exposed.
+            "take_profit": round(tp1, 2),
+            "take_profit_1": round(tp1, 2),
+            "take_profit_2": round(tp2, 2),
             "risk_amount": round(risk_amount, 2),
             "confidence": signal["confidence"],
             "source": signal.get("source_strategy", "Unknown")

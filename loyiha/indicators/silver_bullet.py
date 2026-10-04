@@ -17,12 +17,40 @@ import pandas as pd
 
 from .fvg import detect_fvg
 from .liquidity import detect_liquidity_sweep
+from config import SILVER_BULLET_TIMES
 
-SILVER_BULLET_WINDOWS_UTC = [
-    {"name": "London Silver Bullet", "start": time(8, 0), "end": time(9, 0)},
-    {"name": "NY AM Silver Bullet", "start": time(15, 0), "end": time(16, 0)},
-    {"name": "NY PM Silver Bullet", "start": time(19, 0), "end": time(20, 0)},
+
+def _to_time(hhmm: str, default: time) -> time:
+    """Parse an HH:MM config string, falling back to `default` on bad input."""
+    try:
+        hour, minute = str(hhmm).split(":")
+        return time(int(hour), int(minute))
+    except (ValueError, AttributeError, TypeError):
+        return default
+
+# Fallback windows kept in sync with config.SILVER_BULLET_TIMES defaults:
+# London 08:00-09:00 UTC, NY AM 15:00-16:00 UTC, NY PM 19:00-20:00 UTC.
+_DEFAULT_WINDOWS = [
+    ("London Silver Bullet", time(8, 0), time(9, 0)),
+    ("NY AM Silver Bullet", time(15, 0), time(16, 0)),
+    ("NY PM Silver Bullet", time(19, 0), time(20, 0)),
 ]
+
+
+def _build_windows() -> List[Dict]:
+    """Windows come from config so the killzones are tunable without code edits."""
+    windows = []
+    for idx, entry in enumerate(SILVER_BULLET_TIMES or []):
+        name, def_start, def_end = _DEFAULT_WINDOWS[idx] if idx < len(_DEFAULT_WINDOWS) else (f"Silver Bullet {idx + 1}", time(0, 0), time(0, 0))
+        windows.append({
+            "name": name,
+            "start": _to_time(entry.get("start"), def_start),
+            "end": _to_time(entry.get("end"), def_end),
+        })
+    return windows or [{"name": n, "start": s, "end": e} for n, s, e in _DEFAULT_WINDOWS]
+
+
+SILVER_BULLET_WINDOWS_UTC = _build_windows()
 
 
 def is_silver_bullet_time(ts: pd.Timestamp) -> Optional[str]:
